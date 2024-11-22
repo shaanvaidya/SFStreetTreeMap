@@ -64,18 +64,31 @@
         .suggestion-item:hover {
             background-color: #f0f0f0;
         }
+        #tree-count {
+            position: absolute;
+            top: 10px;
+            left: 320px; /* Position next to the search bar */
+            z-index: 1;
+            padding: 10px;
+            background: white;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body>
     <div id="search-bar">
         <div id="search-bar-container">
             <input type="text" id="species-input" placeholder="Search species..." />
-            <svg id="search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C8.01 14 6 11.99 6 9.5S8.01 5 10.5 5 15 7.01 15 9.5 12.99 14 10.5 14z"/>
+            <svg id="search-icon" xmlns="http://www.w3.org/2000/svg" height=24 width=24 viewBox="0 0 50 50">
+                <path d="M 21 3 C 11.621094 3 4 10.621094 4 20 C 4 29.378906 11.621094 37 21 37 C 24.710938 37 28.140625 35.804688 30.9375 33.78125 L 44.09375 46.90625 L 46.90625 44.09375 L 33.90625 31.0625 C 36.460938 28.085938 38 24.222656 38 20 C 38 10.621094 30.378906 3 21 3 Z M 21 5 C 29.296875 5 36 11.703125 36 20 C 36 28.296875 29.296875 35 21 35 C 12.703125 35 6 28.296875 6 20 C 6 11.703125 12.703125 5 21 5 Z"></path>
             </svg>
         </div>
         <div id="suggestions"></div>
     </div>
+    <div id="tree-count">Number of Trees: 0</div>
     <div id="map"></div>
     <script>
         // Add your Mapbox access token here
