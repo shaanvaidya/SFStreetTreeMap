@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>SF Street Trees Map</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js"></script>
+    <link rel="icon" type="image/png" href="gingko.png">
+    <style>
+        body {
+            font-family: 'Helvetica, sans-serif'; /* Change to the desired font */
+            font-size: 16px;                  /* Adjust the global font size */
+            color: #333;                      /* Global text color */
+        }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        #search-bar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1;
+            width: 300px;
+        }
+        #search-bar-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        #species-input {
+            width: 100%;
+            padding: 10px 40px 10px 15px; /* Space for the icon on the right */
+            font-size: 16px;
+            border-radius: 25px; /* Rounded corners */
+            border: 1px solid #ccc;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+            outline: none;
+        }
+        #search-icon {
+            position: absolute;
+            right: 15px;
+            width: 20px;
+            height: 20px;
+            pointer-events: none;
+            fill: #888;
+        }
+        #suggestions {
+            position: absolute;
+            top: 50px;
+            left: 0;
+            z-index: 2;
+            width: 100%;
+            background: white;
+            border: 1px solid #ccc;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            border-radius: 0 0 10px 10px; /* Rounded bottom corners for suggestions */
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .suggestion-item {
+            padding: 10px;
+            cursor: pointer;
+        }
+        .suggestion-item:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div id="search-bar">
+        <div id="search-bar-container">
+            <input type="text" id="species-input" placeholder="Search species..." />
+            <svg id="search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C8.01 14 6 11.99 6 9.5S8.01 5 10.5 5 15 7.01 15 9.5 12.99 14 10.5 14z"/>
+            </svg>
+        </div>
+        <div id="suggestions"></div>
+    </div>
+    <div id="map"></div>
+    <script>
+        // Add your Mapbox access token here
+        mapboxgl.accessToken = 'pk.eyJ1Ijoic2hhYW52YWlkeWEiLCJhIjoiY20zc2FzeWtyMGV6dzJqb2oyNjcxc2k2dCJ9.kqxE189voII-7Ua8TFpVgw';
+
+        // Create the map object
+        const map = new mapboxgl.Map({
+            container: 'map', // container ID
+            style: 'mapbox://styles/mapbox/streets-v11', // style URL
+            center: [-122.438565, 37.756608], // starting position [lng, lat]
+            zoom: 11.7 // starting zoom
+        });
+
+        // Add zoom and rotation controls to the map.
+        map.addControl(new mapboxgl.NavigationControl());
+
+        let speciesList = [];
+
+        // Load your GeoJSON data here (this should be the file you exported as GeoJSON)
+        map.on('load', function () {
+            map.addSource('trees', {
+                type: 'geojson',
+                data: 'street_trees.geojson' // Path to your GeoJSON file
+            });
+
+            map.addLayer({
+                id: 'tree-layer',
+                type: 'circle',
+                source: 'trees',
+                paint: {
+                    'circle-radius': [
+                        'interpolate',
+                        ['linear'],
+                        ['get', 'DBH'],
+                        1, 3,
+                        50, 10
+                    ],
+                    'circle-color': [
+                        'interpolate',
+                        ['linear'],
+                        ['get', 'Analysis Neighborhoods'],
+                        1, '#d32f2f',   // Dark red
+                        10, '#1976d2',  // Dark blue
+                        20, '#388e3c',  // Dark green
+                        30, '#f57c00',  // Deep orange
+                        40, '#ffa000'   // Amber (darker yellow-orange)
+                    ],
+                    'circle-opacity': 0.7
+                }
+            });
+
+            // Populate the species list for the search functionality
+            fetch('street_trees.geojson')
+                .then(response => response.json())
+                .then(data => {
+                    speciesList = [...new Set(data.features.map(f => f.properties.Species))];
+                });
+        });
+
+        // Add click event to display a popup with tree details
+        map.on('click', 'tree-layer', (e) => {
+            if (e.features.length) {
+                const tree = e.features[0].properties;
+                const coordinates = e.features[0].geometry.coordinates.slice();
+
+                // Ensure the map properly pans to the clicked feature
+                while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                    coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+                }
+
+                // Create the popup
+                new mapboxgl.Popup()
+                    .setLngLat(coordinates)
+                    .setHTML(`
+                        <p><strong>Species:</strong> ${tree.Species}</p>
+                        <p><strong>Address:</strong> ${tree.Address}</p>
+                        <p><strong>Site Info:</strong> ${tree["Site Info"]}</p>
+                        <p><strong>Location Coordinates:</strong> ${tree.Location}</p>
+                        <p><strong>Plant Date:</strong> ${tree.PlantDate}</p>
+                        `)
+                    .addTo(map);
+            }
+        });
+
+
+        // Change the cursor to a pointer when hovering over the circle
+        map.on('mouseenter', 'tree-layer', () => {
+            map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', 'tree-layer', () => {
+            map.getCanvas().style.cursor = '';
+        });
+
+        // Add functionality to filter the trees based on species input with suggestions
+        const speciesInput = document.getElementById('species-input');
+        const suggestionsBox = document.getElementById('suggestions');
+
+        speciesInput.addEventListener('input', function () {
+            const query = this.value.toLowerCase();
+
+            // Clear previous suggestions
+            suggestionsBox.innerHTML = '';
+            suggestionsBox.style.display = 'none';
+
+            if (query !== '') {
+                // Find matching species and display suggestions
+                const matches = speciesList.filter(species => species.toLowerCase().includes(query));
+
+                if (matches.length > 0) {
+                    suggestionsBox.style.display = 'block';
+
+                    matches.forEach(species => {
+                        const suggestionItem = document.createElement('div');
+                        suggestionItem.classList.add('suggestion-item');
+                        suggestionItem.textContent = species;
+
+                        // Add click event for selecting a suggestion
+                        suggestionItem.addEventListener('click', function () {
+                            speciesInput.value = species;
+                            suggestionsBox.style.display = 'none';
+                            filterTreesBySpecies(species);
+                        });
+
+                        suggestionsBox.appendChild(suggestionItem);
+                    });
+                }
+            }
+
+            // Apply filter based on current input
+            if (query === '') {
+                map.setFilter('tree-layer', null);
+            } else {
+                filterTreesBySpecies(query);
+            }
+        });
+
+        // Function to filter trees by species
+        function filterTreesBySpecies(species) {
+            map.setFilter('tree-layer', ['in', ['get', 'Species'], species]);
+        }
+
+        // Hide suggestions box if clicking outside of it
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('#search-bar')) {
+                suggestionsBox.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
